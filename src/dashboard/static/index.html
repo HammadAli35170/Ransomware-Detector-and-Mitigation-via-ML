@@ -1,0 +1,2192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ransomware EDR Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root{
+        --bg:#0a0f1a;
+        --panel:#0f1625;
+        --panel-hover:#151d2e;
+        --muted:rgba(230,238,246,0.5);
+        --accent:#06b6d4;
+        --accent-hover:#0891b2;
+        --danger:#ef4444;
+        --danger-hover:#dc2626;
+        --success:#10b981;
+        --warning:#f59e0b;
+        --text-primary:#f1f5f9;
+        --text-secondary:rgba(241,245,249,0.7);
+        --border:rgba(255,255,255,0.08);
+        --shadow:0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -1px rgba(0,0,0,0.2);
+        --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -2px rgba(0,0,0,0.3);
+      }
+      *{box-sizing:border-box}
+      html,body{height:100%;margin:0;padding:0}
+      body{
+        background:linear-gradient(135deg, #0a0f1a 0%, #0f1625 50%, #0a0f1a 100%);
+        background-attachment:fixed;
+        color:var(--text-primary);
+        font-family:'Inter', 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+        font-size:14px;
+        line-height:1.6;
+        overflow-x:hidden;
+      }
+      .app-shell{display:flex;min-height:100vh;position:relative}
+      
+      /* Sidebar Styles */
+      .sidebar{
+        width:280px;
+        background:linear-gradient(180deg, #0d1420 0%, #0a0f1a 100%);
+        border-right:1px solid var(--border);
+        padding:24px 20px;
+        transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow:var(--shadow-lg);
+        position:relative;
+        z-index:100;
+      }
+      .sidebar.collapsed{width:80px;padding:20px 12px}
+      .sidebar.collapsed .brand-text{display:none}
+      .sidebar.collapsed .brand-subtitle{display:none}
+      .sidebar.collapsed .nav-link{padding-left:12px;justify-content:center}
+      .sidebar.collapsed .nav-text{display:none}
+      
+      /* Logo/Brand Area - Clickable */
+      .brand-container{
+        display:flex;
+        align-items:center;
+        margin-bottom:32px;
+        padding:12px;
+        border-radius:12px;
+        cursor:pointer;
+        transition:all 0.2s ease;
+        user-select:none;
+      }
+      .brand-container:hover{
+        background:rgba(255,255,255,0.05);
+        transform:translateX(2px);
+      }
+      .brand-container:active{transform:translateX(0)}
+      .brand-logo{
+        width:48px;
+        height:48px;
+        border-radius:12px;
+        object-fit:cover;
+        box-shadow:0 4px 12px rgba(6,182,212,0.3);
+        transition:transform 0.2s ease;
+      }
+      .brand-container:hover .brand-logo{transform:scale(1.05)}
+      .brand-text-container{margin-left:14px;flex:1}
+      .brand-text{
+        font-weight:700;
+        font-size:16px;
+        color:#fff;
+        letter-spacing:0.5px;
+        margin:0;
+        background:linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+        -webkit-background-clip:text;
+        -webkit-text-fill-color:transparent;
+        background-clip:text;
+      }
+      .brand-subtitle{
+        font-size:11px;
+        color:var(--muted);
+        margin:2px 0 0 0;
+        font-weight:500;
+        text-transform:uppercase;
+        letter-spacing:1px;
+      }
+      
+      /* Navigation */
+      .nav{display:flex;flex-direction:column;gap:4px}
+      .nav-link{
+        display:flex;
+        align-items:center;
+        padding:12px 16px;
+        color:var(--text-secondary);
+        text-decoration:none;
+        border-radius:10px;
+        transition:all 0.2s ease;
+        cursor:pointer;
+        font-weight:500;
+        font-size:14px;
+        position:relative;
+      }
+      .nav-link i{width:20px;text-align:center;margin-right:12px;font-size:16px}
+      .nav-link:hover{
+        background:rgba(255,255,255,0.08);
+        color:var(--text-primary);
+        transform:translateX(4px);
+      }
+      .nav-link.active{
+        background:linear-gradient(135deg, rgba(6,182,212,0.2) 0%, rgba(59,130,246,0.2) 100%);
+        color:var(--accent);
+        border-left:3px solid var(--accent);
+        box-shadow:0 2px 8px rgba(6,182,212,0.2);
+      }
+      .nav-link.active::before{
+        content:'';
+        position:absolute;
+        left:0;
+        top:50%;
+        transform:translateY(-50%);
+        width:3px;
+        height:60%;
+        background:var(--accent);
+        border-radius:0 2px 2px 0;
+      }
+      
+      /* Content Area */
+      .content{
+        flex:1;
+        padding:28px 32px;
+        transition:margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-x:hidden;
+      }
+      
+      /* Topbar */
+      .topbar{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        margin-bottom:24px;
+        padding:16px 0;
+        border-bottom:1px solid var(--border);
+      }
+      .topbar h3{
+        margin:0;
+        font-size:24px;
+        font-weight:700;
+      }
+      .topbar h3 span{color:var(--danger)}
+      .topbar-right{
+        display:flex;
+        align-items:center;
+        gap:16px;
+      }
+      .status-badge{
+        display:inline-flex;
+        align-items:center;
+        padding:6px 14px;
+        background:rgba(16,185,129,0.15);
+        border:1px solid rgba(16,185,129,0.3);
+        border-radius:20px;
+        font-size:12px;
+        font-weight:600;
+        color:var(--success);
+      }
+      .status-badge::before{
+        content:'●';
+        margin-right:6px;
+        font-size:8px;
+        animation:pulse 2s infinite;
+      }
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+      
+      /* Search Box */
+      #searchBox{
+        background:rgba(255,255,255,0.05);
+        border:1px solid var(--border);
+        border-radius:8px;
+        padding:8px 14px;
+        color:var(--text-primary);
+        font-size:13px;
+        width:300px;
+        transition:all 0.2s ease;
+      }
+      #searchBox:focus{
+        outline:none;
+        border-color:var(--accent);
+        background:rgba(255,255,255,0.08);
+        box-shadow:0 0 0 3px rgba(6,182,212,0.1);
+      }
+      #searchBox::placeholder{color:var(--muted)}
+      
+      /* Panel Cards */
+      .panel-card{
+        background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+        border:1px solid var(--border);
+        box-shadow:var(--shadow);
+        border-radius:16px;
+        backdrop-filter:blur(10px);
+        transition:all 0.3s ease;
+      }
+      .panel-card:hover{
+        border-color:rgba(255,255,255,0.12);
+        box-shadow:var(--shadow-lg);
+        transform:translateY(-2px);
+      }
+      
+      /* Metrics */
+      .metric{
+        font-size:2.8rem;
+        font-weight:800;
+        line-height:1;
+        margin:8px 0;
+        background:linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+        -webkit-background-clip:text;
+        -webkit-text-fill-color:transparent;
+        background-clip:text;
+      }
+      .small-muted{
+        color:var(--muted);
+        font-size:12px;
+        font-weight:500;
+      }
+      
+      /* Killswitch */
+      .killswitch{
+        background:linear-gradient(135deg, rgba(239,68,68,0.1) 0%, rgba(220,38,38,0.05) 100%);
+        border:1px solid rgba(239,68,68,0.2);
+      }
+      #killswitchBtn{
+        background:linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%);
+        border:none;
+        font-weight:700;
+        letter-spacing:0.5px;
+        text-transform:uppercase;
+        box-shadow:0 4px 12px rgba(239,68,68,0.3);
+        transition:all 0.2s ease;
+      }
+      #killswitchBtn:hover{
+        transform:translateY(-2px);
+        box-shadow:0 6px 16px rgba(239,68,68,0.4);
+      }
+      #killswitchBtn:active{transform:translateY(0)}
+      
+      /* Charts */
+      .chart-card{height:280px;padding:8px}
+      
+      /* Feed Items */
+      .feed-item{
+        cursor:pointer;
+        padding:14px;
+        margin-bottom:10px;
+        background:rgba(255,255,255,0.02);
+        border:1px solid var(--border);
+        border-radius:10px;
+        transition:all 0.2s ease;
+      }
+      .feed-item:hover{
+        background:rgba(255,255,255,0.05);
+        border-color:rgba(255,255,255,0.15);
+        transform:translateX(4px);
+      }
+      
+      /* Modal */
+      #detailModal{
+        background:linear-gradient(135deg, rgba(15,22,37,0.98) 0%, rgba(10,15,26,0.98) 100%);
+        border:1px solid var(--border);
+        box-shadow:0 20px 60px rgba(0,0,0,0.5);
+        backdrop-filter:blur(20px);
+      }
+      .tab-content{
+        display:none;
+      }
+      .tab-content.active{
+        display:block;
+      }
+      .nav-tabs .nav-link{
+        transition:all 0.2s ease;
+      }
+      .nav-tabs .nav-link:hover{
+        color:var(--accent) !important;
+        background:rgba(6,182,212,0.05) !important;
+      }
+      .nav-tabs .nav-link.active{
+        color:var(--accent) !important;
+        background:transparent !important;
+      }
+      
+      /* Event Details Modal Enhancements */
+      #detailModal .badge{
+        font-weight:600;
+        letter-spacing:0.5px;
+      }
+      
+      #detailModal code{
+        background:rgba(6,182,212,0.15);
+        padding:2px 6px;
+        border-radius:4px;
+        font-size:11px;
+        color:var(--accent);
+      }
+      
+      #detailModal pre{
+        background:rgba(0,0,0,0.5);
+        border:1px solid var(--border);
+        border-radius:8px;
+        padding:16px;
+        margin:0;
+        overflow:auto;
+        font-family:'Consolas','Monaco','Courier New',monospace;
+        font-size:12px;
+        line-height:1.6;
+        color:var(--text-primary);
+      }
+      
+      /* Feature breakdown styling */
+      #detailFeatures code{
+        font-size:11px;
+      }
+      
+      /* Genealogy tree styling */
+      #detailGenealogy{
+        line-height:1.8;
+      }
+      
+      /* Responsive modal */
+      @media (max-width:768px){
+        #detailModal{
+          width:95% !important;
+          max-height:95vh !important;
+        }
+        #detailModal .d-flex.gap-2{
+          flex-wrap:wrap;
+        }
+        #detailModal .d-flex.gap-2 button{
+          margin-bottom:4px;
+        }
+      }
+      
+      /* Buttons */
+      .btn{
+        border-radius:8px;
+        font-weight:600;
+        transition:all 0.2s ease;
+        border:1px solid transparent;
+      }
+      .btn-outline-light{
+        border-color:var(--border);
+        color:var(--text-secondary);
+        background:rgba(255,255,255,0.05);
+      }
+      .btn-outline-light:hover{
+        background:rgba(255,255,255,0.1);
+        border-color:rgba(255,255,255,0.2);
+        color:var(--text-primary);
+        transform:translateY(-1px);
+      }
+      
+      /* Utilities */
+      .muted{color:var(--muted)}
+      .blink{animation:blink 1.5s infinite}
+      @keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+      .view{display:none}
+      .view.active{display:block}
+      
+      /* Badges */
+      .badge{
+        font-weight:600;
+        border-radius:4px;
+        vertical-align:middle;
+      }
+      
+      /* Visualization panels */
+      #genealogy-viewer, #graph-viewer, #stage4-decision-viewer{
+        min-height:100px;
+        font-family:'Consolas', 'Monaco', 'Courier New', monospace;
+      }
+      
+      /* Threat Analysis and Active Threats tabs */
+      #threat-analysis-list .feed-item, #active-threats-list .feed-item{
+        cursor:pointer;
+        transition:all 0.2s ease;
+      }
+      #threat-analysis-list .feed-item:hover, #active-threats-list .feed-item:hover{
+        background:rgba(255,255,255,0.08);
+        border-color:rgba(255,255,255,0.15);
+      }
+      .threat-summary-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:10px;
+      }
+      .threat-mini-card{
+        background:rgba(255,255,255,0.03);
+        border:1px solid var(--border);
+        border-radius:10px;
+        padding:10px;
+      }
+      .threat-mini-label{
+        color:var(--muted);
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:0.6px;
+      }
+      .threat-mini-value{
+        color:var(--text-primary);
+        font-size:20px;
+        font-weight:700;
+        line-height:1.2;
+      }
+      .stage3-card{
+        border-left:3px solid transparent !important;
+      }
+      .stage3-card.tier-low{border-left-color:#10b981 !important;}
+      .stage3-card.tier-medium{border-left-color:#f59e0b !important;}
+      .stage3-card.tier-high{border-left-color:#ef4444 !important;}
+      .stage3-card.tier-critical{border-left-color:#b91c1c !important;}
+      .stage3-meter{
+        margin-top:8px;
+        height:6px;
+        width:100%;
+        border-radius:999px;
+        background:rgba(255,255,255,0.08);
+        overflow:hidden;
+      }
+      .stage3-meter-fill{
+        height:100%;
+        border-radius:999px;
+        transition:width 0.2s ease;
+      }
+      
+      /* Scrollbar Styling */
+      ::-webkit-scrollbar{width:8px;height:8px}
+      ::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);border-radius:4px}
+      ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:4px}
+      ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.3)}
+      
+      /* Responsive */
+      @media (max-width:768px){
+        .sidebar{width:100%;position:fixed;z-index:1000;height:100vh}
+        .sidebar.collapsed{transform:translateX(-100%)}
+        .content{margin-left:0}
+        #detailModal{width:95% !important;left:50%;top:50%;transform:translate(-50%,-50%);padding:16px}
+        .topbar h3{font-size:18px}
+        #searchBox{width:200px}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-container" id="logoToggle">
+          <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" class="brand-logo" alt="EDR Logo"/>
+          <div class="brand-text-container">
+            <div class="brand-text brand-text-main">RANSOMWARE EDR</div>
+            <div class="brand-subtitle">Live 2025</div>
+          </div>
+        </div>
+        <nav class="nav flex-column">
+          <a class="nav-link active mb-1" data-view="dashboard"><i class="fa fa-tachometer-alt me-2"></i> <span class="nav-text">Dashboard</span></a>
+          <a class="nav-link mb-1" data-view="live"><i class="fa fa-broadcast-tower me-2"></i> <span class="nav-text">Live Monitoring</span></a>
+          <a class="nav-link mb-1" data-view="threat-analysis"><i class="fa fa-search me-2"></i> <span class="nav-text">Threat Analysis</span></a>
+          <a class="nav-link mb-1" data-view="active-threats"><i class="fa fa-exclamation-triangle me-2"></i> <span class="nav-text">Active Threats</span></a>
+          <a class="nav-link mb-1" data-view="alerts"><i class="fa fa-bell me-2"></i> <span class="nav-text">Alerts</span></a>
+          <a class="nav-link mb-1" data-view="metrics"><i class="fa fa-chart-line me-2"></i> <span class="nav-text">Metrics</span></a>
+          <a class="nav-link mb-1" data-view="settings"><i class="fa fa-cogs me-2"></i> <span class="nav-text">Settings</span></a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <div class="topbar">
+          <div>
+              <h3 style="margin:0"><span style="color:#ff5c5c">RANSOMWARE</span> EDR DASHBOARD <small class="small-muted">— Live Monitoring</small></h3>
+          </div>
+          <div class="topbar-right">
+            <div class="status-badge">ARMED</div>
+            <input id="searchBox" placeholder="Search events..."/>
+          </div>
+        </div>
+
+        <!-- Views -->
+        <section id="dashboard" class="view active">
+          <div class="row metrics-grid">
+            <div class="col-md-3">
+              <div class="panel-card p-3">
+                <div class="small-muted">Total Events</div>
+                <div class="metric text-info" id="total">0</div>
+                <div class="small-muted">Event Collection</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="panel-card p-3">
+                <div class="small-muted">Alerts</div>
+                <div class="metric text-danger" id="alerts">0</div>
+                <div class="small-muted">Active Threats</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="panel-card p-3">
+                <div class="small-muted">Entropy Hits</div>
+                <div class="metric text-warning" id="entropy">0</div>
+                <div class="small-muted">High entropy samples</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="panel-card p-3">
+                <div class="small-muted">Honeypot Touches</div>
+                <div class="metric text-success" id="honey">0</div>
+                <div class="small-muted">Detected honeypot access</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row mt-3">
+            <div class="col-lg-8">
+              <div class="panel-card p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h5 class="mb-0">Activity Overview</h5>
+                  <small class="small-muted">Live events / alerts (last 60 samples)</small>
+                </div>
+                <div class="chart-card"><canvas id="eventsChart" style="width:100%;height:260px"></canvas></div>
+              </div>
+
+              <div class="panel-card p-3 mb-3">
+                <div class="d-flex justify-content-between mb-2">
+                  <h5 class="mb-0">Events Feed</h5>
+                  <small class="small-muted">Real-time Event Collection & Threat Analysis</small>
+                </div>
+                <div id="alerts-list" style="max-height:420px;overflow:auto;padding:6px"></div>
+              </div>
+            </div>
+
+            <div class="col-lg-4">
+              <div class="panel-card p-3 mb-3 killswitch">
+                <h5>Killswitch</h5>
+                <p class="small-muted">Trigger the response for active threats.</p>
+                <button id="killswitchBtn" class="btn btn-danger btn-lg w-100 mb-2">TERMINATE ALL THREATS</button>
+                <div class="small-muted">Manual override — exercise with caution</div>
+              </div>
+
+              <div class="panel-card p-3 mb-3">
+                <h6 class="mb-2">Active Threats</h6>
+                <div id="active-alerts-list" style="max-height:300px;overflow:auto;padding:6px"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="live" class="view">
+          <div class="row">
+            <div class="col-lg-8">
+              <div class="panel-card p-3 mb-3">
+                <h5 class="mb-0">Live Logs</h5>
+                <div class="small-muted">Streamed Event Collection & Threat Analysis events</div>
+                <div class="mt-3 mb-3">
+                  <h6 class="mb-2">Last 60 Minutes — Events by Category</h6>
+                  <div style="height:220px"><canvas id="hourChart" style="width:100%;height:220px"></canvas></div>
+                </div>
+                <div class="mt-3">
+                  <div class="d-flex mb-2">
+                    <button class="btn btn-sm btn-outline-light me-2" data-filter="all">All</button>
+                    <button class="btn btn-sm btn-outline-light me-2" data-filter="stage1">Event Collection</button>
+                    <button class="btn btn-sm btn-outline-light me-2" data-filter="stage3">Threat Analysis</button>
+                    <button class="btn btn-sm btn-outline-light" data-filter="stage4">Active Threats</button>
+                  </div>
+                  <div id="live-list" style="max-height:520px;overflow:auto;padding:6px"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4">
+              <div class="panel-card p-3 mb-3">
+                <h6>Active Threats</h6>
+                <div id="promoted-list" style="max-height:520px;overflow:auto;padding:6px"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="threat-analysis" class="view">
+          <div class="row">
+            <div class="col-lg-8">
+              <div class="panel-card p-3 mb-3">
+                <h5 class="mb-0">Threat Analysis (Stage 3)</h5>
+                <div class="small-muted">Events analyzed by ML scorer and YARA scanner</div>
+                <div class="threat-summary-grid mt-3 mb-2">
+                  <div class="threat-mini-card">
+                    <div class="threat-mini-label">Tracked PIDs</div>
+                    <div id="taTrackedPids" class="threat-mini-value">0</div>
+                  </div>
+                  <div class="threat-mini-card">
+                    <div class="threat-mini-label">High-Risk (>=60)</div>
+                    <div id="taHighRiskPids" class="threat-mini-value">0</div>
+                  </div>
+                  <div class="threat-mini-card">
+                    <div class="threat-mini-label">Average Score</div>
+                    <div id="taAverageScore" class="threat-mini-value">0.0</div>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <div id="threat-analysis-list" style="max-height:600px;overflow:auto;padding:6px"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4">
+              <div class="panel-card p-3 mb-3">
+                <h6 class="mb-2">Process Genealogy</h6>
+                <div class="small-muted mb-2">Select an event to view process tree</div>
+                <div id="genealogy-viewer" style="max-height:600px;overflow:auto;padding:8px;background:rgba(0,0,0,0.2);border-radius:8px;font-family:monospace;font-size:11px">
+                  <div class="text-muted">No event selected</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="active-threats" class="view">
+          <div class="row">
+            <div class="col-lg-8">
+              <div class="panel-card p-3 mb-3">
+                <h5 class="mb-0">Active Threats (Stage 4)</h5>
+                <div class="small-muted">Events classified by full scorer with graph analytics</div>
+                <div class="mt-3">
+                  <div id="active-threats-list" style="max-height:600px;overflow:auto;padding:6px"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4">
+              <div class="panel-card p-3 mb-3">
+                <h6 class="mb-2">Graph Analytics</h6>
+                <div class="small-muted mb-2">Select an event to view graph analysis</div>
+                <div id="graph-viewer" style="max-height:300px;overflow:auto;padding:8px;background:rgba(0,0,0,0.2);border-radius:8px;font-family:monospace;font-size:11px">
+                  <div class="text-muted">No event selected</div>
+                </div>
+              </div>
+              <div class="panel-card p-3 mb-3">
+                <h6 class="mb-2">Stage 4 Decision</h6>
+                <div id="stage4-decision-viewer" style="max-height:300px;overflow:auto;padding:8px;background:rgba(0,0,0,0.2);border-radius:8px;font-family:monospace;font-size:11px">
+                  <div class="text-muted">No event selected</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="alerts" class="view">
+          <div class="row">
+            <div class="col-12">
+              <div class="panel-card p-3 mb-3">
+                <h5>Alerts Overview</h5>
+                <small class="small-muted">Live alert counts</small>
+                <div class="chart-card mt-3"><canvas id="alertsChart" style="width:100%;height:220px"></canvas></div>
+              </div>
+
+              <div class="panel-card p-3 mb-3">
+                <h5>All Alerts</h5>
+                <div id="alerts-only-list" style="max-height:420px;overflow:auto;padding:6px"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="metrics" class="view">
+          <div class="panel-card p-3 mb-3">
+            <h5>Metrics</h5>
+            <p class="small-muted">Engine metrics and tracked PIDs</p>
+            <pre id="metricsDump" class="detail-box">No metrics yet.</pre>
+          </div>
+        </section>
+
+        <section id="settings" class="view">
+          <div class="panel-card p-3 mb-3">
+            <h5>Settings</h5>
+            <p class="small-muted">Local dashboard settings (non-persistent)</p>
+            <div class="form-check form-switch mt-2"><input id="optSound" class="form-check-input" type="checkbox" checked><label class="form-check-label small-muted" for="optSound"> Enable sound on alerts</label></div>
+          </div>
+          <div class="panel-card p-3 mb-3">
+            <h5>Admin / Diagnostics</h5>
+            <p class="small-muted">Inspect recent raw events and persisted jumps/alerts</p>
+            <div class="mt-2 mb-2"><button id="btnLoadRecent" class="btn btn-sm btn-outline-light me-2">Load Recent Events</button><button id="btnLoadJumps" class="btn btn-sm btn-outline-light">Load Jumps</button></div>
+            <div id="adminOutput" style="max-height:360px;overflow:auto;padding:8px;background:rgba(0,0,0,0.12);border-radius:8px;font-family:monospace;font-size:12px;color:#e6eef6"></div>
+          </div>
+        </section>
+
+        <div id="detailModal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:90%;max-width:1200px;max-height:90vh;z-index:9999;border-radius:16px;background:linear-gradient(135deg, rgba(15,22,37,0.98) 0%, rgba(10,15,26,0.98) 100%);border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.7);backdrop-filter:blur(20px);overflow:hidden;flex-direction:column;">
+          <!-- Header -->
+          <div style="padding:20px 24px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.2);">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div style="flex:1">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                  <h4 style="margin:0;font-weight:700;color:var(--text-primary);" id="detailEventType">Event Details</h4>
+                  <span id="detailStageBadge" class="badge" style="font-size:11px;padding:4px 10px;">STAGE 1</span>
+                  <span id="detailVerdictBadge" class="badge" style="font-size:11px;padding:4px 10px;display:none;"></span>
+                </div>
+                <div class="d-flex align-items-center gap-4" style="font-size:12px;color:var(--text-secondary);">
+                  <span><i class="fa fa-server me-1"></i> <span id="detailHostname">-</span></span>
+                  <span><i class="fa fa-clock me-1"></i> <span id="detailTimestamp">-</span></span>
+                  <span id="detailRelativeTime" style="color:var(--muted);"></span>
+                </div>
+              </div>
+              <div class="d-flex gap-2">
+                <button id="detailCopy" class="btn btn-sm btn-outline-light" title="Copy JSON" style="padding:6px 10px;"><i class="fa fa-copy"></i></button>
+                <button id="detailJump" class="btn btn-sm btn-primary" title="Jump to process" style="padding:6px 10px;"><i class="fa fa-bullseye"></i></button>
+                <button id="detailLabelBenign" class="btn btn-sm btn-outline-success" title="Label as benign" style="padding:6px 10px;"><i class="fa fa-check-circle"></i></button>
+                <button id="detailLabelMalicious" class="btn btn-sm btn-outline-danger" title="Label as malicious" style="padding:6px 10px;"><i class="fa fa-exclamation-triangle"></i></button>
+                <button id="detailPromoteStage3" class="btn btn-sm btn-warning" title="Push to Stage 3" style="padding:6px 10px;display:none;"><i class="fa fa-arrow-up"></i></button>
+                <button id="detailPromoteStage4" class="btn btn-sm btn-danger" title="Push to Stage 4" style="padding:6px 10px;"><i class="fa fa-arrow-up"></i></button>
+                <button id="detailClose" class="btn btn-sm btn-outline-light" title="Close" style="padding:6px 10px;"><i class="fa fa-times"></i></button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tabs -->
+          <div style="padding:0 24px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.1);">
+            <ul class="nav nav-tabs" style="border-bottom:none;margin:0;">
+              <li class="nav-item"><a class="nav-link active" data-tab="overview" style="cursor:pointer;color:var(--text-secondary);border:none;border-bottom:2px solid var(--accent);padding:12px 16px;background:transparent;"><i class="fa fa-info-circle me-2"></i>Overview</a></li>
+              <li class="nav-item"><a class="nav-link" data-tab="behavioral" style="cursor:pointer;color:var(--text-secondary);border:none;padding:12px 16px;background:transparent;display:none;" id="tabBehavioral"><i class="fa fa-brain me-2"></i>Behavioral Analysis</a></li>
+              <li class="nav-item"><a class="nav-link" data-tab="genealogy" style="cursor:pointer;color:var(--text-secondary);border:none;padding:12px 16px;background:transparent;"><i class="fa fa-sitemap me-2"></i>Process Tree</a></li>
+              <li class="nav-item"><a class="nav-link" data-tab="raw" style="cursor:pointer;color:var(--text-secondary);border:none;padding:12px 16px;background:transparent;"><i class="fa fa-code me-2"></i>Raw JSON</a></li>
+            </ul>
+          </div>
+          
+          <!-- Content Area -->
+          <div style="flex:1;overflow:auto;padding:24px;">
+            <!-- Overview Tab -->
+            <div id="tabContentOverview" class="tab-content active">
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <h6 style="color:var(--accent);margin-bottom:12px;font-weight:600;"><i class="fa fa-file-code me-2"></i>Process Information</h6>
+                  <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Image Name</strong><div id="detailImage" style="color:var(--text-primary);margin-top:4px;font-family:monospace;word-break:break-all;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Command Line</strong><div id="detailCommandLine" style="color:var(--text-primary);margin-top:4px;font-family:monospace;word-break:break-all;font-size:12px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Process ID</strong><div id="detailPid" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Parent PID</strong><div id="detailParentPid" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">User</strong><div id="detailUser" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Integrity Level</strong><div id="detailIntegrity" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                  </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                  <h6 style="color:var(--accent);margin-bottom:12px;font-weight:600;"><i class="fa fa-shield-alt me-2"></i>Security Indicators</h6>
+                  <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">SHA256 Hash</strong><div id="detailSha256" style="color:var(--accent);margin-top:4px;font-family:monospace;word-break:break-all;font-size:11px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Signed</strong><div id="detailSigned" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Microsoft Binary</strong><div id="detailMicrosoft" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Event ID</strong><div id="detailEventId" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Behavioral Analysis Tab (Stage 3 Only) -->
+            <div id="tabContentBehavioral" class="tab-content" style="display:none;">
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <h6 style="color:var(--accent);margin-bottom:12px;font-weight:600;"><i class="fa fa-chart-line me-2"></i>ML / Behavioral Analysis</h6>
+                  <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Stage 3 Score</strong><div id="detailStage3Score" style="color:var(--text-primary);margin-top:4px;font-size:24px;font-weight:700;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Risk Tier</strong><div id="detailRiskTier" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Behavioral Signal Count</strong><div id="detailBehavioralSignals" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Data Quality</strong><div id="detailDataQuality" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                  </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                  <h6 style="color:var(--accent);margin-bottom:12px;font-weight:600;"><i class="fa fa-search me-2"></i>YARA Analysis</h6>
+                  <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">YARA Matched</strong><div id="detailYaraMatched" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Context</strong><div id="detailYaraContext" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Matched Rules</strong><div id="detailYaraRules" style="color:var(--text-primary);margin-top:4px;font-family:monospace;font-size:11px;">-</div></div>
+                    <div class="mb-3"><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Confidence</strong><div id="detailYaraConfidence" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                    <div><strong style="color:var(--muted);font-size:11px;text-transform:uppercase;">Weighted Confidence</strong><div id="detailYaraWeighted" style="color:var(--text-primary);margin-top:4px;">-</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="row mt-3">
+                <div class="col-12">
+                  <h6 style="color:var(--accent);margin-bottom:12px;font-weight:600;"><i class="fa fa-list me-2"></i>Feature Breakdown</h6>
+                  <div id="detailFeatures" style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;border:1px solid var(--border);max-height:400px;overflow:auto;">
+                    <div class="text-muted">No feature data available</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Process Tree Tab -->
+            <div id="tabContentGenealogy" class="tab-content" style="display:none;">
+              <div id="detailGenealogy" style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;border:1px solid var(--border);font-family:monospace;font-size:12px;max-height:500px;overflow:auto;">
+                <div class="text-muted">No genealogy data available</div>
+              </div>
+            </div>
+            
+            <!-- Raw JSON Tab -->
+            <div id="tabContentRaw" class="tab-content" style="display:none;">
+              <div style="position:relative;">
+                <button id="detailCopyJson" class="btn btn-sm btn-outline-light" style="position:absolute;top:8px;right:8px;z-index:10;"><i class="fa fa-copy me-1"></i>Copy</button>
+                <pre id="detailRawJson" style="background:rgba(0,0,0,0.5);padding:16px;border-radius:8px;border:1px solid var(--border);margin:0;max-height:500px;overflow:auto;font-family:'Consolas','Monaco','Courier New',monospace;font-size:12px;color:var(--text-primary);white-space:pre-wrap;word-wrap:break-word;"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="mt-4 muted">© 2025 Ransomware EDR — Live monitoring. Dashboard powered by Chart.js & Bootstrap.</footer>
+      </main>
+    </div>
+
+    <script>
+      // Track which main view (Dashboard / Live / Threat Analysis / etc.) is active
+      let currentMainViewId = 'dashboard';
+
+      // Simple SPA navigation
+      document.querySelectorAll('.nav-link').forEach(a=>{
+        a.addEventListener('click', ()=>{
+          document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));
+          a.classList.add('active');
+          const view = a.dataset.view;
+          currentMainViewId = view || currentMainViewId;
+          document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+          const target = document.getElementById(view);
+          if(target) target.classList.add('active');
+        });
+      });
+
+      // Sidebar toggle via logo click
+      const sidebar = document.querySelector('.sidebar');
+      const logoToggle = document.getElementById('logoToggle');
+      
+      function toggleSidebar(){
+        sidebar.classList.toggle('collapsed');
+        // store preference
+        try{ 
+          localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed') ? '1' : '0'); 
+        }catch(e){}
+      }
+      
+      logoToggle.addEventListener('click', toggleSidebar);
+      
+      // restore preference on load
+      try{ 
+        if(localStorage.getItem('sidebarCollapsed')==='1') {
+          sidebar.classList.add('collapsed');
+        }
+      }catch(e){}
+
+      // WebSocket wiring with automatic reconnection
+      const WS_URL = (location.protocol === 'https:') ? 'wss://' + location.host + '/ws' : 'ws://127.0.0.1:8000/ws';
+      let ws = null;
+      let reconnectTimeout = null;
+      let reconnectAttempts = 0;
+      const MAX_RECONNECT_ATTEMPTS = 10;
+      const RECONNECT_DELAY = 3000; // 3 seconds
+      let pingInterval = null;
+      let lastPongTime = Date.now();
+      const PING_INTERVAL = 30000; // 30 seconds
+      const CONNECTION_TIMEOUT = 60000; // 60 seconds without pong = timeout
+      
+      function connectWebSocket() {
+        try {
+          if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+            return; // Already connected or connecting
+          }
+          
+          console.log(`Connecting to WebSocket (attempt ${reconnectAttempts + 1})...`);
+          ws = new WebSocket(WS_URL);
+          
+          ws.onopen = function() {
+            console.log('WebSocket connected');
+            reconnectAttempts = 0;
+            lastPongTime = Date.now();
+            
+            // Start ping interval to keep connection alive
+            if (pingInterval) clearInterval(pingInterval);
+            pingInterval = setInterval(function() {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                try {
+                  ws.send(JSON.stringify({type: 'ping', timestamp: Date.now()}));
+                } catch(e) {
+                  console.warn('Failed to send ping:', e);
+                }
+              }
+            }, PING_INTERVAL);
+            
+            // Monitor connection health
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            reconnectTimeout = setTimeout(function() {
+              const timeSinceLastPong = Date.now() - lastPongTime;
+              if (timeSinceLastPong > CONNECTION_TIMEOUT) {
+                console.warn('WebSocket connection appears stale, reconnecting...');
+                ws.close();
+              }
+            }, CONNECTION_TIMEOUT);
+          };
+          
+          ws.onmessage = function(e) {
+            try {
+              const data = JSON.parse(e.data);
+              
+              // Handle pong responses
+              if (data.type === 'pong') {
+                lastPongTime = Date.now();
+                return;
+              }
+              
+              // Handle stats updates
+              if(data.type==='stats'){
+                // Update DOM elements with null checks
+                const totalEl = document.getElementById('total');
+                if(totalEl) totalEl.textContent = data.total ?? 0;
+                
+                const alertsEl = document.getElementById('alerts');
+                if(alertsEl) {
+                  alertsEl.textContent = data.alerts ?? 0;
+                  if((data.alerts||0)>0) alertsEl.classList.add('blink'); 
+                  else alertsEl.classList.remove('blink');
+                }
+                
+                const entropyEl = document.getElementById('entropy');
+                if(entropyEl) entropyEl.textContent = data.entropy ?? 0;
+                
+                const honeyEl = document.getElementById('honey');
+                if(honeyEl) honeyEl.textContent = data.honey ?? 0;
+                
+                const trackedPidsEl = document.getElementById('tracked_pids');
+                if(trackedPidsEl) trackedPidsEl.textContent = data.tracked_pids ?? trackedPidsEl.textContent;
+                
+                // Update latestStats with per-stage counts from server
+                latestStats = {
+                  total: data.total ?? 0, 
+                  alerts: data.alerts ?? 0, 
+                  stage1: data.stage1 ?? 0, 
+                  stage3: data.stage3 ?? 0,
+                  stage4: data.stage4 ?? 0
+                };
+                statsReceived = true;
+              }
+              
+              // Handle history
+              if(data.type==='history'){
+                // seed charts with server series if present
+                if(data.series){
+                  samples.labels = data.series.labels.slice();
+                  stageSamples.stage1 = data.series.stage1.slice();
+                  stageSamples.stage3 = data.series.stage3.slice();
+                  stageSamples.stage4 = data.series.stage4.slice();
+                  if(eventsChart) {
+                    try {
+                      eventsChart.data.labels = samples.labels.slice();
+                      eventsChart.data.datasets[0].data = stageSamples.stage1.slice();
+                      eventsChart.data.datasets[1].data = stageSamples.stage3.slice();
+                      eventsChart.data.datasets[2].data = stageSamples.stage4.slice();
+                      eventsChart.update();
+                    } catch(err) {
+                      console.error('Error updating eventsChart from history:', err);
+                    }
+                  }
+                  // also seed hourChart if present
+                  if(hourChart){
+                    hourChart.data.labels = data.series.labels.slice();
+                    hourChart.data.datasets[0].data = data.series.stage1.slice();
+                    hourChart.data.datasets[1].data = data.series.stage3.slice();
+                    hourChart.data.datasets[2].data = data.series.stage4.slice();
+                    hourChart.update();
+                  }
+                }
+              }
+              
+              // Handle alerts and events
+              if(data.type==='alert' || data.type==='event'){
+                if(!data.raw) data.raw = data;
+                
+                // Determine stage early for deduplication logic
+                const stage = data.stage || guessStage(data.raw);
+                
+                // Stage 3 events: Always keep the LATEST event for each PID (has most complete information)
+                // Replace older entries with newer ones that have accumulated behavioral features
+                let shouldReplaceExisting = false;
+                if (stage === 'stage3') {
+                  const pid = data.pid || data.raw?.ProcessID || data.raw?.ProcessId || data.raw?.process_id || 'unknown';
+                  const score = data.ml_score || data.raw?.__stage3_score || 0;
+                  
+                  // Check if we already have a Stage 3 event for this PID
+                  const existingEvent = window.lastStage3EventByPID && window.lastStage3EventByPID[pid];
+                  if (existingEvent) {
+                    const timeDiff = Date.now() - existingEvent.timestamp;
+                    // Within 30 seconds: replace old entry with new one (new one has more complete info)
+                    // This ensures we show the latest event with all accumulated behavioral features
+                    if (timeDiff < 30000) {
+                      shouldReplaceExisting = true; // Mark that we should replace the old entry
+                    }
+                    // After 30 seconds: allow new entry (process might have been re-evaluated separately)
+                  }
+                  
+                  // Track this event immediately (always update to latest)
+                  if (!window.lastStage3EventByPID) window.lastStage3EventByPID = {};
+                  if (!window.lastStage3EventByPID[pid]) {
+                    window.lastStage3EventByPID[pid] = {};
+                  }
+                  // Always update to the latest event's timestamp and score
+                  window.lastStage3EventByPID[pid].timestamp = Date.now();
+                  window.lastStage3EventByPID[pid].score = score;
+                  // Note: nodeId will be set when the node is actually created in the Stage 3 section below
+                } else {
+                  // For other stages, use original deduplication logic
+                  // Skip duplicate events (same PID + image + timestamp within 5 seconds)
+                  // Always show alerts/promoted events (stage4), but deduplicate regular stage1 events
+                  const isAlert = data.type === 'alert' || stage === 'stage4';
+                  isDuplicate = !isAlert && isDuplicateEvent(data);
+                }
+                
+                // Update stats for ALL events (including duplicates)
+                try{
+                  if(stage === 'stage1' || stage === 'stage3' || stage === 'stage4') {
+                    latestStats[stage] = (latestStats[stage]||0) + 1;
+                    statsReceived = true;
+                    
+                    // Also update the last data point in eventsChart immediately for real-time feel
+                    if(eventsChart && stageSamples[stage] && stageSamples[stage].length > 0) {
+                      const lastIdx = stageSamples[stage].length - 1;
+                      stageSamples[stage][lastIdx] = (stageSamples[stage][lastIdx] || 0) + 1;
+                      try {
+                        const map = {'stage1':0,'stage3':1,'stage4':2};
+                        const di = map[stage];
+                        if(di !== undefined) {
+                          eventsChart.data.datasets[di].data[lastIdx] = stageSamples[stage][lastIdx];
+                          eventsChart.update('none');
+                        }
+                      } catch(err) {
+                        console.error('Error updating eventsChart from event:', err);
+                      }
+                    }
+                  }
+                  // increment last datapoint in hourChart if present
+                  if(hourChart && hourChart.data && hourChart.data.datasets){
+                    const idx = hourChart.data.labels.length - 1;
+                    if(idx >= 0){
+                      const map = {'stage1':0,'stage3':1,'stage4':2};
+                      const di = map[stage];
+                      if(di !== undefined && hourChart.data.datasets[di]){
+                        hourChart.data.datasets[di].data[idx] = (hourChart.data.datasets[di].data[idx] || 0) + 1;
+                        hourChart.update('none');
+                      }
+                    }
+                  }
+                } catch(err) {
+                  console.error('Error updating charts from event:', err);
+                }
+                
+                // Skip adding duplicate events to the feed (but stats are already updated above)
+                // Note: For Stage 3, we don't skip here - we replace old entries instead
+                if (isDuplicate && stage !== 'stage3') {
+                  return; // Don't add duplicate to feed (for non-Stage3 events)
+                }
+                
+                const node = makeEntryNode(data);
+                node.dataset.stage = stage;
+                // Stage 4 (Active Threat) is always promoted
+                node.dataset.promoted = (data.type==='alert' || stage==='stage4') ? '1' : '0';
+                prependAndBound(liveList, node, 300);
+                prependAndBound(alertsList, node.cloneNode(true), 200);
+                if(data.type==='alert') prependAndBound(alertsOnlyList, makeEntryNode(data), 400);
+                
+                // Debug logging for manual promotions
+                if(data.manually_promoted || (data.raw && data.raw.__manually_promoted)) {
+                  console.log('Manual promotion event received:', {stage, pid: data.pid, image: data.image, score: data.ml_score});
+                }
+                
+                // Stage 3 (Threat Analysis) events - always show the LATEST event (most complete info)
+                // Replace older entries with newer ones that have accumulated behavioral features
+                if(stage === 'stage3') {
+                  const threatAnalysisList = document.getElementById('threat-analysis-list');
+                  if (threatAnalysisList) {
+                    // Always remove ALL old entries for same PID before adding the new one
+                    // This ensures we show the latest event with all accumulated features
+                    const pid = data.pid || data.raw?.ProcessID || data.raw?.ProcessId || data.raw?.process_id || 'unknown';
+                    
+                    // Method 1: Remove by tracked nodeId (if available)
+                    if (window.lastStage3EventByPID && window.lastStage3EventByPID[pid] && window.lastStage3EventByPID[pid].nodeId) {
+                      const existingNodeId = window.lastStage3EventByPID[pid].nodeId;
+                      const oldNode = document.getElementById(existingNodeId);
+                      if (oldNode && oldNode.parentNode) {
+                        oldNode.parentNode.removeChild(oldNode);
+                      }
+                    }
+                    
+                    // Method 2: Remove ALL nodes with matching PID by searching the DOM
+                    // This ensures we catch any duplicates, even if tracking wasn't set up properly
+                    const allNodes = threatAnalysisList.children;
+                    for (let i = allNodes.length - 1; i >= 0; i--) {
+                      const node = allNodes[i];
+                      const nodePid = node.getAttribute('data-pid') || node.dataset?.pid;
+                      if (nodePid === String(pid)) {
+                        // Also check if it's a Stage 3 node by ID pattern or data attribute
+                        const nodeId = node.id || '';
+                        if (nodeId.startsWith('stage3-') || node.dataset?.stage === 'stage3') {
+                          threatAnalysisList.removeChild(node);
+                        }
+                      }
+                    }
+                    
+                    // Create a new node for the dedicated tab (this is the LATEST event with complete info)
+                    const threatAnalysisNode = makeEntryNode(data);
+                    const nodeId = `stage3-${pid}-${Date.now()}`;
+                    threatAnalysisNode.id = nodeId;
+                    // Add data-pid attribute for easier searching
+                    threatAnalysisNode.setAttribute('data-pid', String(pid));
+                    
+                    // Track this node for future replacement
+                    if (!window.lastStage3EventByPID) window.lastStage3EventByPID = {};
+                    if (!window.lastStage3EventByPID[pid]) {
+                      window.lastStage3EventByPID[pid] = {};
+                    }
+                    window.lastStage3EventByPID[pid].nodeId = nodeId;
+                    window.lastStage3EventByPID[pid].timestamp = Date.now();
+                    window.lastStage3EventByPID[pid].score = data.ml_score || data.raw?.__stage3_score || 0;
+                    updateThreatAnalysisSummary();
+                    
+                    // Add the new node (prepend so latest appears at top)
+                    prependAndBound(threatAnalysisList, threatAnalysisNode, 400);
+                  } else {
+                    // Element might not exist yet, try again after a short delay
+                    setTimeout(() => {
+                      const threatAnalysisList = document.getElementById('threat-analysis-list');
+                      if (threatAnalysisList && stage === 'stage3') {
+                        // Remove ALL old entries for same PID before adding
+                        const pid = data.pid || data.raw?.ProcessID || data.raw?.ProcessId || data.raw?.process_id || 'unknown';
+                        const allNodes = threatAnalysisList.children;
+                        for (let i = allNodes.length - 1; i >= 0; i--) {
+                          const node = allNodes[i];
+                          const nodePid = node.getAttribute('data-pid') || node.dataset?.pid;
+                          if (nodePid === String(pid)) {
+                            const nodeId = node.id || '';
+                            if (nodeId.startsWith('stage3-') || node.dataset?.stage === 'stage3') {
+                              threatAnalysisList.removeChild(node);
+                            }
+                          }
+                        }
+                        
+                        const threatAnalysisNode = makeEntryNode(data);
+                        const nodeId = `stage3-${pid}-${Date.now()}`;
+                        threatAnalysisNode.id = nodeId;
+                        threatAnalysisNode.setAttribute('data-pid', String(pid));
+                        
+                        // Update tracking
+                        if (!window.lastStage3EventByPID) window.lastStage3EventByPID = {};
+                        if (!window.lastStage3EventByPID[pid]) {
+                          window.lastStage3EventByPID[pid] = {};
+                        }
+                        window.lastStage3EventByPID[pid].nodeId = nodeId;
+                        window.lastStage3EventByPID[pid].timestamp = Date.now();
+                        window.lastStage3EventByPID[pid].score = data.ml_score || data.raw?.__stage3_score || 0;
+                        updateThreatAnalysisSummary();
+                        
+                        prependAndBound(threatAnalysisList, threatAnalysisNode, 400);
+                      }
+                    }, 100);
+                  }
+                }
+                
+                // Active Threats (Stage 4) go to promotedList - ALL Stage 4 events
+                if(stage === 'stage4') {
+                  prependAndBound(promotedList, makeEntryNode(data), 400);
+                  // Also add to Active Threats sidebar
+                  prependAndBound(activeAlertsList, makeEntryNode(data), 200);
+                  // Add to dedicated Active Threats tab
+                  const activeThreatsList = document.getElementById('active-threats-list');
+                  if (activeThreatsList) {
+                    prependAndBound(activeThreatsList, makeEntryNode(data), 400);
+                  }
+                } else if(data.type==='alert') {
+                  // Legacy: other alerts also go to promotedList
+                  prependAndBound(promotedList, makeEntryNode(data), 400);
+                }
+              }
+            } catch(err) {
+              console.error('Error processing WebSocket message:', err);
+            }
+          };
+          
+          ws.onclose = function(event) {
+            console.log('WebSocket closed', event.code, event.reason);
+            if (pingInterval) {
+              clearInterval(pingInterval);
+              pingInterval = null;
+            }
+            if (reconnectTimeout) {
+              clearTimeout(reconnectTimeout);
+              reconnectTimeout = null;
+            }
+            
+            // Attempt to reconnect (unless it was a clean close)
+            if (event.code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+              reconnectAttempts++;
+              const delay = Math.min(RECONNECT_DELAY * reconnectAttempts, 30000); // Max 30 seconds
+              console.log(`Reconnecting in ${delay/1000} seconds... (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+              reconnectTimeout = setTimeout(connectWebSocket, delay);
+            } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+              console.error('Max reconnection attempts reached. Please refresh the page.');
+              // Show user notification
+              const notification = document.createElement('div');
+              notification.style.cssText = 'position:fixed;top:10px;right:10px;background:#dc3545;color:white;padding:15px;border-radius:5px;z-index:10000;box-shadow:0 2px 10px rgba(0,0,0,0.3);';
+              notification.innerHTML = '<strong>Connection Lost</strong><br>Please refresh the page to reconnect.';
+              document.body.appendChild(notification);
+              setTimeout(() => notification.remove(), 10000);
+            }
+          };
+          
+          ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            // Error handling is done in onclose
+          };
+        } catch(err) {
+          console.error('Error setting up WebSocket:', err);
+          // Retry connection after delay
+          reconnectAttempts++;
+          if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectTimeout = setTimeout(connectWebSocket, RECONNECT_DELAY);
+          }
+        }
+      }
+      
+      // Initialize charts BEFORE WebSocket connection
+      const MAX_SAMPLES = 60;
+      const samples = {labels:[]};
+      const stageSamples = {stage1:[], stage3:[], stage4:[]};
+      
+      // Initialize with a few empty data points so chart is visible
+      const now = new Date();
+      for(let i = 5; i >= 0; i--) {
+        const time = new Date(now.getTime() - i * 1000);
+        samples.labels.push(time.toLocaleTimeString());
+        stageSamples.stage1.push(0);
+        stageSamples.stage3.push(0);
+        stageSamples.stage4.push(0);
+      }
+
+      // Initialize eventsChart with better options
+      let eventsChart = null;
+      try {
+        const ctx = document.getElementById('eventsChart');
+        if(ctx) {
+          const chartCtx = ctx.getContext('2d');
+          eventsChart = new Chart(chartCtx, {
+            type: 'line', 
+            data: {
+              labels: samples.labels,
+              datasets:[
+                {
+                  label:'Event Collection',  // Stage 1
+                  data:stageSamples.stage1,
+                  borderColor:'#06b6d4',
+                  backgroundColor:'rgba(6,182,212,0.1)',
+                  borderWidth:2,
+                  pointRadius:2,
+                  pointHoverRadius:4,
+                  tension:0.4,
+                  fill:true
+                },
+                {
+                  label:'Threat Analysis',  // Stage 3
+                  data:stageSamples.stage3,
+                  borderColor:'#f59e0b',
+                  backgroundColor:'rgba(245,158,11,0.1)',
+                  borderWidth:2,
+                  pointRadius:2,
+                  pointHoverRadius:4,
+                  tension:0.4,
+                  fill:true
+                },
+                {
+                  label:'Active Threats',  // Stage 4
+                  data:stageSamples.stage4,
+                  borderColor:'#ff5c5c',
+                  backgroundColor:'rgba(255,92,92,0.1)',
+                  borderWidth:2,
+                  pointRadius:2,
+                  pointHoverRadius:4,
+                  tension:0.4,
+                  fill:true
+                }
+              ]
+            },
+            options:{
+              responsive:true,
+              maintainAspectRatio:false,
+              animation:{
+                duration:750
+              },
+              interaction:{
+                intersect:false,
+                mode:'index'
+              },
+              plugins:{
+                legend:{
+                  display:true,
+                  position:'top',
+                  labels:{
+                    color:'rgba(230,238,246,0.8)',
+                    usePointStyle:true,
+                    padding:15,
+                    font:{size:12, weight:'500'}
+                  }
+                },
+                tooltip:{
+                  enabled:true,
+                  backgroundColor:'rgba(15,22,37,0.95)',
+                  titleColor:'#fff',
+                  bodyColor:'rgba(230,238,246,0.9)',
+                  borderColor:'rgba(255,255,255,0.1)',
+                  borderWidth:1,
+                  padding:12,
+                  displayColors:true
+                }
+              },
+              scales:{
+                x:{
+                  grid:{
+                    color:'rgba(255,255,255,0.05)',
+                    drawBorder:false
+                  },
+                  ticks:{
+                    color:'rgba(230,238,246,0.6)',
+                    maxRotation:0,
+                    font:{size:10}
+                  }
+                },
+                y:{
+                  beginAtZero:true,
+                  grid:{
+                    color:'rgba(255,255,255,0.05)',
+                    drawBorder:false
+                  },
+                  ticks:{
+                    color:'rgba(230,238,246,0.6)',
+                    font:{size:10},
+                    precision:0
+                  }
+                }
+              }
+            }
+          });
+          console.log('Events chart initialized successfully');
+        } else {
+          console.error('eventsChart canvas element not found');
+        }
+      } catch(err) {
+        console.error('Failed to initialize eventsChart:', err);
+      }
+
+      const aCtx = document.getElementById('alertsChart').getContext('2d');
+      const alertsChart = new Chart(aCtx, {type:'bar',data:{labels:[],datasets:[{label:'Alerts',data:[],backgroundColor:'#ff5c5c'}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}}}});
+
+      // Hour chart on Live Monitoring (per-stage 60-minute series)
+      let hourChart = null;
+      try{
+        const hCtxEl = document.getElementById('hourChart');
+        if(hCtxEl){
+          const hCtx = hCtxEl.getContext('2d');
+          hourChart = new Chart(hCtx, {
+            type: 'line', data: {
+              labels: [],
+              datasets: [
+                {label:'Event Collection', data:[], borderColor:'#06b6d4', fill:false, tension:0.25},
+                {label:'Threat Analysis', data:[], borderColor:'#f59e0b', fill:false, tension:0.25},
+                {label:'Active Threats', data:[], borderColor:'#ff5c5c', fill:false, tension:0.25}
+              ]
+            }, options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}}}
+          });
+        }
+      }catch(err){console.warn('hour chart init',err)}
+
+      // Throttle chart updates: collect latest stats and update every second
+      let latestStats = {stage1:0, stage3:0, stage4:0, alerts:0, total:0};
+      let statsReceived = false;
+      
+      // Event deduplication: track seen events to prevent duplicates
+      const seenEvents = new Set();
+      const DEDUP_WINDOW_MS = 5000; // 5 seconds - events with same PID+image within this window are considered duplicates
+      
+      function getEventKey(data) {
+        // Create unique key from PID, image, and timestamp (rounded to nearest second)
+        const pid = data.pid || data.raw?.ProcessID || data.raw?.ProcessId || data.raw?.process_id || 'unknown';
+        const image = (data.image || data.raw?.Image || data.raw?.image || 'unknown').toLowerCase();
+        const timestamp = data.timestamp || data.raw?.EventTime || data.raw?.timestamp || '';
+        // Round timestamp to nearest second to catch events that are essentially the same
+        const timeKey = timestamp ? new Date(timestamp).setMilliseconds(0) : Date.now();
+        return `${pid}:${image}:${timeKey}`;
+      }
+      
+      function isDuplicateEvent(data) {
+        const key = getEventKey(data);
+        if (seenEvents.has(key)) {
+          return true;
+        }
+        // Add to seen events
+        seenEvents.add(key);
+        // Remove after dedup window expires
+        setTimeout(() => {
+          seenEvents.delete(key);
+        }, DEDUP_WINDOW_MS);
+        return false;
+      }
+      
+      setInterval(()=>{
+        const t = new Date().toLocaleTimeString();
+        const s = latestStats;
+        
+        // Always add a data point, even if stats haven't been received yet (shows 0)
+        samples.labels.push(t);
+        stageSamples.stage1.push(s.stage1||0);
+        stageSamples.stage3.push(s.stage3||0);
+        stageSamples.stage4.push(s.stage4||0);
+        
+        if(samples.labels.length>MAX_SAMPLES){
+          samples.labels.shift();
+          stageSamples.stage1.shift();
+          stageSamples.stage3.shift();
+          stageSamples.stage4.shift();
+        }
+        
+        // Update eventsChart if it exists
+        if(eventsChart) {
+          try {
+            eventsChart.data.labels = samples.labels.slice();
+            eventsChart.data.datasets[0].data = stageSamples.stage1.slice();
+            eventsChart.data.datasets[1].data = stageSamples.stage3.slice();
+            eventsChart.data.datasets[2].data = stageSamples.stage4.slice();
+            eventsChart.update('none'); // 'none' mode for smoother updates
+          } catch(err) {
+            console.error('Error updating eventsChart:', err);
+          }
+        }
+
+        // update alertsChart (simple sliding window)
+        if(alertsChart) {
+          try {
+            alertsChart.data.labels.push(t);
+            alertsChart.data.datasets[0].data.push(s.alerts||0);
+            if(alertsChart.data.labels.length>MAX_SAMPLES){
+              alertsChart.data.labels.shift();
+              alertsChart.data.datasets[0].data.shift();
+            }
+            alertsChart.update('none');
+          } catch(err) {
+            console.error('Error updating alertsChart:', err);
+          }
+        }
+        
+        // Reset stats for next second (will be updated by incoming messages)
+        if(statsReceived) {
+          latestStats = {stage1:0, stage3:0, stage4:0, alerts:s.alerts||0, total:s.total||0};
+          statsReceived = false;
+        }
+      }, 1000);
+
+      // Feed lists
+      const alertsList = document.getElementById('alerts-list');
+      const liveList = document.getElementById('live-list');
+      const promotedList = document.getElementById('promoted-list');
+      const alertsOnlyList = document.getElementById('alerts-only-list');
+      const activeAlertsList = document.getElementById('active-alerts-list');
+
+      function formatTime(ts){ try{return new Date(ts).toLocaleTimeString();}catch(e){return ts} }
+
+      function makeEntryNode(data){
+        const div = document.createElement('div');
+        div.className = 'feed-item p-2 mb-2';
+        div.style.border = '1px solid rgba(255,255,255,0.03)'; div.style.borderRadius='8px';
+        const time = formatTime(data.timestamp);
+        // determine pid robustly
+        let pid = data.pid || (data.raw && (data.raw.ProcessID || data.raw.ProcessId || data.raw.process_id || data.raw.pid)) || '???';
+        // Set data-pid attribute for easier deduplication
+        if (pid !== '???') {
+          div.setAttribute('data-pid', String(pid));
+        }
+        let img = data.image || (data.raw && (data.raw.Image || data.raw.image)) || '';
+        
+        // Add manually promoted badge
+        const manualBadge = (data.manually_promoted || (data.raw && data.raw.__manually_promoted)) 
+          ? '<span class="badge bg-warning text-dark ms-2" style="font-size:9px;padding:2px 6px;" title="Manually promoted">MANUAL</span>' 
+          : '';
+        
+        // Get Stage 3 tier to determine if benign
+        const stage3Tier = data.stage3_tier || data.raw?.__stage3_tier;
+        const stage3Score = data.ml_score !== undefined ? data.ml_score : (data.raw?.__stage3_score);
+        const isStage3Event = (data.stage === 'stage3' || data.raw?.__stage3);
+        const isBenign = stage3Tier === 'low' || (stage3Score !== undefined && stage3Score < 60);
+
+        let tierClass = '';
+        if (isStage3Event) {
+          const normalizedTier = String(stage3Tier || '').toLowerCase();
+          tierClass = ['low','medium','high','critical'].includes(normalizedTier) ? normalizedTier : ((stage3Score || 0) >= 95 ? 'critical' : (stage3Score || 0) >= 80 ? 'high' : (stage3Score || 0) >= 60 ? 'medium' : 'low');
+          div.classList.add('stage3-card', `tier-${tierClass}`);
+        }
+        
+        // Add status badge based on tier or status field (for Stage 3 events)
+        let statusBadge = '';
+        if (data.stage === 'stage3' || data.raw?.__stage3) {
+          // Use status field from backend if available, otherwise derive from tier
+          const status = data.status || (stage3Tier === 'low' ? 'Benign' : stage3Tier === 'medium' ? 'Suspicious' : (stage3Tier === 'high' || stage3Tier === 'critical') ? 'Malicious' : 'Unknown');
+          const statusClass = status === 'Benign' ? 'bg-success' : status === 'Suspicious' ? 'bg-warning' : status === 'Malicious' ? 'bg-danger' : 'bg-secondary';
+          statusBadge = `<span class="badge ${statusClass} ms-1" style="font-size:9px;padding:2px 6px;" title="Status: ${status}">${status.toUpperCase()}</span>`;
+        }
+        
+        // Add Stage 3 score if available
+        const scoreBadge = (data.ml_score !== undefined || (data.raw && data.raw.__stage3_score !== undefined))
+          ? `<span class="badge bg-info ms-1" style="font-size:9px;padding:2px 6px;">Score: ${(data.ml_score || data.raw?.__stage3_score || 0).toFixed(1)}</span>`
+          : '';
+        
+        // Add benign badge for LOW tier events (only if no status badge shown)
+        const benignBadge = (!statusBadge && isBenign && (data.stage === 'stage3' || data.raw?.__stage3))
+          ? '<span class="badge bg-success ms-1" style="font-size:9px;padding:2px 6px;" title="Benign - Low risk">BENIGN</span>'
+          : '';
+        
+        // Add Stage 4 verdict if available
+        const verdictBadge = (data.stage4_verdict || (data.raw && data.raw.__stage4_verdict))
+          ? `<span class="badge ${data.stage4_verdict === 'malicious' ? 'bg-danger' : data.stage4_verdict === 'suspicious' ? 'bg-warning' : 'bg-secondary'} ms-1" style="font-size:9px;padding:2px 6px;">${(data.stage4_verdict || data.raw?.__stage4_verdict || '').toUpperCase()}</span>`
+          : '';
+        
+        const stage3Meter = isStage3Event
+          ? `<div class="stage3-meter"><div class="stage3-meter-fill" style="width:${Math.max(0, Math.min(100, stage3Score || 0))}%;background:${(stage3Score || 0) < 60 ? '#10b981' : (stage3Score || 0) < 80 ? '#f59e0b' : '#ef4444'}"></div></div>`
+          : '';
+
+        div.innerHTML = `<div class="d-flex justify-content-between"><div><strong>${(data.type||'event').toUpperCase()}</strong> <span class="small-muted">@ ${time}</span>${manualBadge}${statusBadge}${benignBadge}${scoreBadge}${verdictBadge}</div><div class="small-muted">PID ${pid}</div></div><div class="mt-1 small-muted">${img}</div><div class="mt-2 small">${(data.reasons||[]).slice(0,4).join(' | ')}</div>${stage3Meter}`;
+        div.addEventListener('click', ()=>{showDetail(data); updateVisualizations(data);});
+        return div;
+      }
+
+      function updateThreatAnalysisSummary(){
+        const map = window.lastStage3EventByPID || {};
+        const entries = Object.values(map).filter(v => v && typeof v.score === 'number');
+        const total = entries.length;
+        const highRisk = entries.filter(v => Number(v.score) >= 60).length;
+        const avg = total ? (entries.reduce((a,b) => a + Number(b.score || 0), 0) / total) : 0;
+        const trackedEl = document.getElementById('taTrackedPids');
+        const highRiskEl = document.getElementById('taHighRiskPids');
+        const avgEl = document.getElementById('taAverageScore');
+        if (trackedEl) trackedEl.textContent = String(total);
+        if (highRiskEl) highRiskEl.textContent = String(highRisk);
+        if (avgEl) avgEl.textContent = avg.toFixed(1);
+      }
+      
+      // Update visualizations when event is selected
+      function updateVisualizations(data) {
+        // Update genealogy viewer for Stage 3 events
+        const genealogy = data.genealogy || (data.raw && data.raw.__stage3_genealogy);
+        const genealogyViewer = document.getElementById('genealogy-viewer');
+        if (genealogyViewer) {
+          if (genealogy) {
+            genealogyViewer.innerHTML = renderGenealogy(genealogy);
+          } else if (data.stage === 'stage3') {
+            genealogyViewer.innerHTML = '<div class="text-muted">No genealogy data available for this event</div>';
+          }
+        }
+        
+        // Update graph viewer for Stage 4 events
+        const graphViewer = document.getElementById('graph-viewer');
+        const decisionViewer = document.getElementById('stage4-decision-viewer');
+        if (data.stage === 'stage4' || data.raw?.__stage4) {
+          // Graph analytics (if available in event)
+          if (graphViewer) {
+            const graphData = data.raw?.__stage4_graph || data.raw?.graph_analysis;
+            if (graphData) {
+              graphViewer.innerHTML = `<pre style="font-size:10px;">${JSON.stringify(graphData, null, 2)}</pre>`;
+            } else {
+              graphViewer.innerHTML = '<div class="text-muted">Graph analysis data not available</div>';
+            }
+          }
+          
+          // Stage 4 decision
+          if (decisionViewer) {
+            const verdict = data.stage4_verdict || data.raw?.__stage4_verdict;
+            const score = data.stage4_score || data.raw?.__stage4_score;
+            const confidence = data.stage4_confidence || data.raw?.__stage4_confidence;
+            const reasons = data.reasons || data.raw?.__stage4_reasons || [];
+            
+            if (verdict) {
+              let html = `<div class="mb-2"><strong>Verdict:</strong> <span class="badge ${verdict === 'malicious' ? 'bg-danger' : verdict === 'suspicious' ? 'bg-warning' : 'bg-secondary'}">${verdict.toUpperCase()}</span></div>`;
+              if (score !== undefined) html += `<div class="mb-1"><strong>Score:</strong> ${score.toFixed(2)}</div>`;
+              if (confidence !== undefined) html += `<div class="mb-1"><strong>Confidence:</strong> ${(confidence * 100).toFixed(1)}%</div>`;
+              if (reasons.length > 0) {
+                html += `<div class="mt-2"><strong>Reasons:</strong><ul class="mb-0" style="padding-left:20px;font-size:11px;">`;
+                reasons.forEach(r => html += `<li>${r}</li>`);
+                html += `</ul></div>`;
+              }
+              decisionViewer.innerHTML = html;
+            } else {
+              decisionViewer.innerHTML = '<div class="text-muted">Decision data not available</div>';
+            }
+          }
+        }
+      }
+
+      // currently shown detail payload (for copy/jump actions)
+      let currentDetailData = null;
+      
+      // Render genealogy tree
+      function renderGenealogy(genealogy) {
+        if (!genealogy) return '<div class="text-muted">No genealogy data available</div>';
+        
+        let html = '<div class="mb-3"><h6>Process Genealogy</h6>';
+        
+        // Enhanced metrics with observed/unobserved counts
+        const observedAncestors = genealogy.observed_ancestors || 0;
+        const unobservedAncestors = genealogy.unobserved_ancestors || 0;
+        html += `<div class="small-muted mb-2">Tree Depth: ${genealogy.tree_depth} (${observedAncestors} observed, ${unobservedAncestors} unobserved) | Width: ${genealogy.tree_width} | Descendants: ${genealogy.total_descendants}</div>`;
+        
+        // Render ancestors (going up) - includes unobserved parents
+        if (genealogy.ancestors && genealogy.ancestors.length > 0) {
+          html += '<div class="mb-2"><strong>Ancestors (Parent Chain):</strong></div>';
+          html += '<div style="padding-left:20px;border-left:2px solid #4a90e2;margin-bottom:10px;">';
+          genealogy.ancestors.forEach((anc, idx) => {
+            const isUnobserved = anc.is_unobserved === true;
+            const reason = anc.reason || 'unknown';
+            const reasonText = {
+              'parent_exited_before_collection': 'Parent exited before collection',
+              'agent_startup_gap': 'Agent startup gap',
+              'telemetry_filtered': 'Telemetry filtered',
+              'pid_reuse_risk': 'PID reuse risk',
+              'unknown': 'Unknown reason'
+            }[reason] || reason;
+            
+            if (isUnobserved) {
+              // Unobserved parent - styled differently
+              html += `<div class="mb-1 small" style="color:#f59e0b;font-style:italic;">`;
+              html += `${idx + 1}. <span style="background:rgba(245,158,11,0.2);padding:2px 6px;border-radius:4px;border:1px solid rgba(245,158,11,0.4);">[Unobserved Parent]</span> PID ${anc.pid}</div>`;
+              html += `<div class="small-muted" style="padding-left:15px;font-size:10px;" title="${reasonText}">Reason: ${reasonText}</div>`;
+            } else {
+              // Observed parent
+              html += `<div class="mb-1 small">${idx + 1}. PID ${anc.pid} - ${anc.image || 'Unknown'}</div>`;
+              if (anc.command_line) {
+                html += `<div class="small-muted" style="padding-left:15px;">${anc.command_line.substring(0, 80)}${anc.command_line.length > 80 ? '...' : ''}</div>`;
+              }
+            }
+          });
+          html += '</div>';
+        }
+        
+        // Render root process
+        html += '<div class="mb-2"><strong>Current Process:</strong></div>';
+        html += `<div style="padding-left:20px;border-left:2px solid #f59e0b;margin-bottom:10px;">`;
+        html += `<div class="mb-1 small"><strong>PID ${genealogy.root_pid}</strong>`;
+        if (genealogy.root_process_guid) {
+          html += ` <span class="small-muted" style="font-size:10px;">(GUID: ${genealogy.root_process_guid.substring(0, 20)}...)</span>`;
+        }
+        html += `</div>`;
+        html += '</div>';
+        
+        // Render descendants (going down)
+        if (genealogy.descendants && genealogy.descendants.length > 0) {
+          html += '<div class="mb-2"><strong>Descendants (Child Processes):</strong></div>';
+          html += '<div style="padding-left:20px;border-left:2px solid #10b981;margin-bottom:10px;">';
+          genealogy.descendants.forEach((desc, idx) => {
+            const indent = '&nbsp;'.repeat(desc.depth * 4);
+            html += `<div class="mb-1 small">${indent}└─ PID ${desc.pid} - ${desc.image || 'Unknown'}</div>`;
+            if (desc.command_line) {
+              html += `<div class="small-muted" style="padding-left:${15 + desc.depth * 4}px;">${desc.command_line.substring(0, 80)}${desc.command_line.length > 80 ? '...' : ''}</div>`;
+            }
+          });
+          html += '</div>';
+        }
+        
+        html += '</div>';
+        return html;
+      }
+      
+      // Tab switching
+      document.querySelectorAll('[data-tab]').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+          e.preventDefault();
+          const tabName = this.dataset.tab;
+          // Update tab styles
+          document.querySelectorAll('[data-tab]').forEach(t => {
+            t.classList.remove('active');
+            t.style.borderBottom = 'none';
+            t.style.color = 'var(--text-secondary)';
+          });
+          this.classList.add('active');
+          this.style.borderBottom = '2px solid var(--accent)';
+          this.style.color = 'var(--accent)';
+          
+          // Show/hide content
+          document.querySelectorAll('.tab-content').forEach(content => {
+            content.style.display = 'none';
+            content.classList.remove('active');
+          });
+          const contentId = 'tabContent' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+          const content = document.getElementById(contentId);
+          if (content) {
+            content.style.display = 'block';
+            content.classList.add('active');
+          }
+        });
+      });
+
+      function formatRelativeTime(timestamp) {
+        if (!timestamp) return '';
+        try {
+          const now = new Date();
+          const eventTime = new Date(timestamp);
+          const diffMs = now - eventTime;
+          const diffSec = Math.floor(diffMs / 1000);
+          const diffMin = Math.floor(diffSec / 60);
+          const diffHour = Math.floor(diffMin / 60);
+          
+          if (diffSec < 60) return `${diffSec}s ago`;
+          if (diffMin < 60) return `${diffMin}m ago`;
+          if (diffHour < 24) return `${diffHour}h ago`;
+          return `${Math.floor(diffHour / 24)}d ago`;
+        } catch(e) {
+          return '';
+        }
+      }
+
+      function getEventTypeName(event) {
+        const eventId = event.EventID || event.event_id || event.EventId;
+        if (!eventId) return 'Unknown Event';
+        
+        const eventTypes = {
+          1: 'Process Create',
+          2: 'File Creation Time Changed',
+          3: 'Network Connection',
+          4: 'Sysmon Service State Changed',
+          5: 'Process Terminated',
+          6: 'Driver Loaded',
+          7: 'Image Loaded',
+          8: 'CreateRemoteThread',
+          9: 'RawAccessRead',
+          10: 'ProcessAccess',
+          11: 'FileCreate',
+          12: 'RegistryEvent (Object Create/Delete)',
+          13: 'RegistryEvent (Value Set)',
+          14: 'RegistryEvent (Key and Value Rename)',
+          15: 'FileCreateStreamHash',
+          16: 'Sysmon Configuration Change',
+          17: 'Pipe Created',
+          18: 'Pipe Connected',
+          19: 'WmiEvent (WmiEventFilter activity detected)',
+          20: 'WmiEvent (WmiEventConsumer activity detected)',
+          21: 'WmiEvent (WmiEventConsumerToFilter activity detected)',
+          22: 'DNS Query',
+          23: 'File Delete',
+          24: 'Clipboard Changed',
+          25: 'Process Tampering',
+          26: 'File Delete Detected',
+          255: 'Error'
+        };
+        return eventTypes[eventId] || `Sysmon Event ID ${eventId}`;
+      }
+
+      function getVerdictBadge(tier, score) {
+        if (!tier && score === undefined) return null;
+        const s = score || 0;
+        const t = tier || (s < 60 ? 'low' : s < 80 ? 'medium' : s < 95 ? 'high' : 'critical');
+        
+        const badges = {
+          'low': {text: 'BENIGN', class: 'bg-success', color: '#10b981'},
+          'medium': {text: 'SUSPICIOUS', class: 'bg-warning', color: '#f59e0b'},
+          'high': {text: 'HIGH RISK', class: 'bg-danger', color: '#ef4444'},
+          'critical': {text: 'CRITICAL', class: 'bg-danger', color: '#dc2626'}
+        };
+        const badge = badges[t] || badges['low'];
+        return `<span class="badge ${badge.class}" style="font-size:11px;padding:4px 10px;background:${badge.color}20;border:1px solid ${badge.color}40;color:${badge.color};">${badge.text}</span>`;
+      }
+
+      function showDetail(data){ 
+        currentDetailData = data.raw || data;
+        const event = currentDetailData;
+        const isStage3 = !!(event.__stage3 || event.__stage3_score !== undefined);
+        
+        // Header
+        document.getElementById('detailEventType').textContent = getEventTypeName(event);
+        document.getElementById('detailHostname').textContent = event.Hostname || event.hostname || 'Unknown';
+        
+        const timestamp = event.EventTime || event.timestamp || event.TimeGenerated || new Date().toISOString();
+        const eventDate = new Date(timestamp);
+        document.getElementById('detailTimestamp').textContent = eventDate.toLocaleString();
+        document.getElementById('detailRelativeTime').textContent = formatRelativeTime(timestamp);
+        
+        // Stage badge
+        const stageBadge = document.getElementById('detailStageBadge');
+        if (isStage3) {
+          stageBadge.textContent = 'STAGE 3';
+          stageBadge.style.background = 'rgba(245,158,11,0.2)';
+          stageBadge.style.border = '1px solid rgba(245,158,11,0.4)';
+          stageBadge.style.color = '#f59e0b';
+        } else {
+          stageBadge.textContent = 'STAGE 1';
+          stageBadge.style.background = 'rgba(6,182,212,0.2)';
+          stageBadge.style.border = '1px solid rgba(6,182,212,0.4)';
+          stageBadge.style.color = '#06b6d4';
+        }
+        
+        // Verdict badge
+        const verdictBadge = document.getElementById('detailVerdictBadge');
+        const tier = event.__stage3_tier || event.stage3_tier;
+        const score = event.__stage3_score !== undefined ? event.__stage3_score : (event.ml_score !== undefined ? event.ml_score : undefined);
+        if (tier || score !== undefined) {
+          verdictBadge.innerHTML = getVerdictBadge(tier, score);
+          verdictBadge.style.display = 'inline-block';
+        } else {
+          verdictBadge.style.display = 'none';
+        }
+        
+        // Show/hide Stage 3 tab
+        const behavioralTab = document.getElementById('tabBehavioral');
+        if (isStage3) {
+          behavioralTab.style.display = 'block';
+        } else {
+          behavioralTab.style.display = 'none';
+          // If behavioral tab is active but not Stage 3, switch to overview
+          if (behavioralTab.classList.contains('active')) {
+            document.querySelector('[data-tab="overview"]').click();
+          }
+        }
+        
+        // Show/hide Push to Stage 3 button (only for Stage 1)
+        document.getElementById('detailPromoteStage3').style.display = isStage3 ? 'none' : 'inline-block';
+        
+        // Overview Tab
+        document.getElementById('detailImage').textContent = event.Image || event.image || event.ProcessImage || '-';
+        document.getElementById('detailCommandLine').textContent = event.CommandLine || event.command_line || event.ProcessCommandLine || '-';
+        document.getElementById('detailPid').textContent = event.ProcessID || event.ProcessId || event.pid || event.process_id || '-';
+        document.getElementById('detailParentPid').textContent = event.ParentProcessID || event.ParentProcessId || event.parent_pid || event.parent_process_id || '-';
+        document.getElementById('detailUser').textContent = (event.User || event.user || event.AccountName || event.account_name || '-') + 
+          (event.Domain ? `@${event.Domain || event.domain || ''}` : '');
+        document.getElementById('detailIntegrity').textContent = event.IntegrityLevel || event.integrity_level || '-';
+        
+        const hashes = event.Hashes || event.hashes || '';
+        const sha256 = hashes.match(/SHA256=([A-Fa-f0-9]+)/);
+        document.getElementById('detailSha256').textContent = sha256 ? sha256[1] : (event.SHA256 || event.sha256 || '-');
+        
+        document.getElementById('detailSigned').textContent = event.Signed || event.signed !== undefined ? (event.Signed || event.signed ? 'Yes' : 'No') : '-';
+        document.getElementById('detailMicrosoft').textContent = event.IsMicrosoft || event.is_microsoft !== undefined ? (event.IsMicrosoft || event.is_microsoft ? 'Yes' : 'No') : '-';
+        document.getElementById('detailEventId').textContent = event.EventID || event.event_id || event.EventId || '-';
+        
+        // Behavioral Analysis Tab (Stage 3 only)
+        if (isStage3) {
+          const stage3Score = event.__stage3_score !== undefined ? event.__stage3_score : (event.ml_score !== undefined ? event.ml_score : 0);
+          document.getElementById('detailStage3Score').textContent = stage3Score.toFixed(2);
+          document.getElementById('detailStage3Score').style.color = stage3Score < 60 ? '#10b981' : stage3Score < 80 ? '#f59e0b' : '#ef4444';
+          
+          const riskTier = event.__stage3_tier || event.stage3_tier || (stage3Score < 60 ? 'low' : stage3Score < 80 ? 'medium' : stage3Score < 95 ? 'high' : 'critical');
+          document.getElementById('detailRiskTier').innerHTML = `<span class="badge ${riskTier === 'low' ? 'bg-success' : riskTier === 'medium' ? 'bg-warning' : 'bg-danger'}" style="font-size:11px;padding:4px 8px;">${riskTier.toUpperCase()}</span>`;
+          
+          const behavioralCount = event.__stage3_behavioral_signal_count || event.behavioral_signal_count || 0;
+          document.getElementById('detailBehavioralSignals').textContent = behavioralCount;
+          
+          const dataQuality = event.__stage3_data_quality || event.data_quality || 'unknown';
+          const qualityColor = dataQuality === 'sufficient' ? '#10b981' : dataQuality === 'insufficient' ? '#ef4444' : '#f59e0b';
+          document.getElementById('detailDataQuality').innerHTML = `<span style="color:${qualityColor};">${dataQuality.toUpperCase()}</span>`;
+          
+          // YARA Analysis
+          const yaraMatched = !!(event.__stage3_yara_matched || event.yara_matched);
+          document.getElementById('detailYaraMatched').innerHTML = yaraMatched 
+            ? '<span class="badge bg-danger" style="font-size:11px;padding:4px 8px;">MATCHED</span>'
+            : '<span class="badge bg-secondary" style="font-size:11px;padding:4px 8px;">NO MATCH</span>';
+          
+          const yaraContext = event.__stage3_yara_context || event.yara_context || 'UNKNOWN';
+          document.getElementById('detailYaraContext').textContent = yaraContext;
+          
+          const yaraRules = event.__stage3_yara_rules || event.yara_rules || [];
+          document.getElementById('detailYaraRules').textContent = yaraRules.length > 0 ? yaraRules.join(', ') : 'None';
+          
+          const yaraConf = event.__stage3_yara_confidence !== undefined ? event.__stage3_yara_confidence : (event.yara_confidence !== undefined ? event.yara_confidence : 0);
+          document.getElementById('detailYaraConfidence').textContent = yaraConf > 0 ? `${(yaraConf * 100).toFixed(1)}%` : '-';
+          
+          const yaraWeighted = event.__stage3_yara_weighted_confidence !== undefined ? event.__stage3_yara_weighted_confidence : (event.yara_weighted_confidence !== undefined ? event.yara_weighted_confidence : 0);
+          document.getElementById('detailYaraWeighted').textContent = yaraWeighted > 0 ? `${(yaraWeighted * 100).toFixed(1)}%` : '-';
+          
+          // Feature Breakdown
+          const features = event.__stage3_features || event.features || {};
+          if (Object.keys(features).length > 0) {
+            const featureGroups = {
+              'Process Behavior': ['process_creation_time', 'process_lifetime', 'thread_count', 'handle_count', 'cpu_usage', 'ram_usage'],
+              'File Activity': ['files_created', 'files_modified', 'files_deleted', 'file_entropy', 'file_write_rate'],
+              'Memory Activity': ['memory_allocations', 'memory_writes', 'memory_protection'],
+              'Network Behavior': ['network_connections', 'dns_queries', 'network_bytes'],
+              'Privilege/Token': ['privilege_escalation', 'token_manipulation', 'integrity_level'],
+              'YARA': ['yara_match_memory', 'yara_match_executable', 'yara_match_script', 'yara_match_document', 'yara_match_ads', 'yara_weighted_confidence']
+            };
+            
+            let featureHtml = '';
+            for (const [groupName, groupKeys] of Object.entries(featureGroups)) {
+              const groupFeatures = [];
+              for (const key of groupKeys) {
+                if (features.hasOwnProperty(key)) {
+                  const value = features[key];
+                  if (value !== 0 && value !== null && value !== undefined) {
+                    groupFeatures.push({key, value});
+                  }
+                }
+              }
+              
+              if (groupFeatures.length > 0) {
+                featureHtml += `<div class="mb-3"><strong style="color:var(--accent);font-size:12px;">${groupName}</strong>`;
+                groupFeatures.forEach(f => {
+                  const valStr = typeof f.value === 'number' ? f.value.toFixed(3) : String(f.value);
+                  featureHtml += `<div class="mt-2" style="padding-left:12px;border-left:2px solid var(--accent);padding:4px 8px;background:rgba(6,182,212,0.1);margin-top:4px;"><code style="color:var(--accent);">${f.key}</code>: <strong style="color:var(--text-primary);">${valStr}</strong></div>`;
+                });
+                featureHtml += '</div>';
+              }
+            }
+            
+            if (!featureHtml) {
+              featureHtml = '<div class="text-muted">No non-zero features found</div>';
+            }
+            
+            document.getElementById('detailFeatures').innerHTML = featureHtml;
+          } else {
+            document.getElementById('detailFeatures').innerHTML = '<div class="text-muted">No feature data available</div>';
+          }
+        }
+        
+        // Process Tree Tab
+        const genealogy = data.genealogy || (data.raw && data.raw.__stage3_genealogy);
+        if (genealogy) {
+          document.getElementById('detailGenealogy').innerHTML = renderGenealogy(genealogy);
+        } else {
+          document.getElementById('detailGenealogy').innerHTML = '<div class="text-muted">No genealogy data available</div>';
+        }
+        
+        // Raw JSON Tab
+        document.getElementById('detailRawJson').textContent = JSON.stringify(currentDetailData, null, 2);
+        
+        // Show modal
+        const modal = document.getElementById('detailModal');
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        
+        // Reset to Overview tab
+        document.querySelector('[data-tab="overview"]').click();
+      }
+      function restoreActiveMainView(){
+        if (!currentMainViewId) return;
+        try{
+          document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+          const target = document.getElementById(currentMainViewId);
+          if (target) target.classList.add('active');
+        }catch(e){
+          console.warn('restoreActiveMainView failed', e);
+        }
+      }
+
+      document.getElementById('detailClose').addEventListener('click', ()=>{ 
+        document.getElementById('detailModal').style.display='none'; 
+        currentDetailData = null;
+        restoreActiveMainView();
+      });
+      
+      // Close modal on outside click
+      document.getElementById('detailModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+          this.style.display = 'none';
+          currentDetailData = null;
+          restoreActiveMainView();
+        }
+      });
+
+      // copy JSON button (header)
+      document.getElementById('detailCopy').addEventListener('click', async ()=>{
+        if(!currentDetailData) return alert('No data to copy');
+        const text = JSON.stringify(currentDetailData, null, 2);
+        try{
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+          }
+          const b = document.getElementById('detailCopy'); 
+          b.innerHTML = '<i class="fa fa-check"></i>'; 
+          setTimeout(()=>b.innerHTML = '<i class="fa fa-copy"></i>', 1500);
+        }catch(err){ console.warn('copy failed',err); alert('Copy failed: '+err.message); }
+      });
+      
+      // copy JSON button (in Raw JSON tab)
+      document.getElementById('detailCopyJson').addEventListener('click', async ()=>{
+        if(!currentDetailData) return alert('No data to copy');
+        const text = JSON.stringify(currentDetailData, null, 2);
+        try{
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+          }
+          const b = document.getElementById('detailCopyJson'); 
+          const original = b.innerHTML;
+          b.innerHTML = '<i class="fa fa-check me-1"></i>Copied'; 
+          setTimeout(()=>b.innerHTML = original, 1500);
+        }catch(err){ console.warn('copy failed',err); alert('Copy failed: '+err.message); }
+      });
+
+      // jump to process: request backend action via WS
+      document.getElementById('detailJump').addEventListener('click', ()=>{
+        if(!currentDetailData) return alert('No process to jump to');
+        const pid = currentDetailData.pid || currentDetailData.ProcessId || currentDetailData.process_id;
+        const image = currentDetailData.image || currentDetailData.Image || currentDetailData.process_image;
+        if(!pid){ if(!confirm('PID not found in event — still send jump request?')) return; }
+        const msg = {type:'jump', pid: pid, image: image, raw: currentDetailData};
+        try{ ws.send(JSON.stringify(msg)); document.getElementById('detailJump').textContent='Requested'; setTimeout(()=>document.getElementById('detailJump').innerHTML='<i class="fa fa-bullseye"></i> Jump to process',1200); }catch(err){ console.warn('jump send',err); alert('Jump request failed: '+err.message); }
+      });
+
+      // Manual promotion to Stage 3
+      document.getElementById('detailPromoteStage3').addEventListener('click', async ()=>{
+        if(!currentDetailData) return alert('No event data available');
+        const btn = document.getElementById('detailPromoteStage3');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+        
+        try {
+          const response = await fetch('/api/promote/stage3', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({event: currentDetailData})
+          });
+          
+          const result = await response.json();
+          
+          if(result.success) {
+            btn.innerHTML = '<i class="fa fa-check"></i> Promoted!';
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+            alert(`Event promoted to Stage 3!\nScore: ${result.result.score.toFixed(2)}\nTier: ${result.result.tier}\nPID: ${result.pid}\n\nThe event will appear in:\n1. Live feed (all events)\n2. Threat Analysis tab (click "Threat Analysis" in sidebar)`);
+            
+            // Automatically switch to Threat Analysis tab to show the promoted event
+            setTimeout(() => {
+              const threatAnalysisLink = document.querySelector('[data-view="threat-analysis"]');
+              if (threatAnalysisLink) {
+                threatAnalysisLink.click();
+              }
+            }, 500);
+            // Close modal but stay on current tab (user can navigate manually if they want)
+            document.getElementById('detailModal').style.display='none';
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.classList.remove('btn-success');
+              btn.classList.add('btn-warning');
+              btn.disabled = false;
+            }, 2000);
+          } else {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            alert('Promotion failed: ' + (result.error || 'Unknown error'));
+          }
+        } catch(err) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          console.error('Promote to Stage 3 failed:', err);
+          alert('Promotion request failed: ' + err.message);
+        }
+      });
+
+      async function labelCurrentDetail(labelValue){
+        if(!currentDetailData) return alert('No event data available');
+        const eventUuid = currentDetailData.__event_uuid || currentDetailData.event_uuid;
+        if(!eventUuid){
+          return alert('event_uuid not found on this event. Make sure the launcher is up to date and reconnect.');
+        }
+        const note = prompt('Optional note for this label (can be empty):','') || '';
+        try{
+          const resp = await fetch('/api/label', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({event_uuid: eventUuid, label: labelValue, note})
+          });
+          const result = await resp.json();
+          if(result.success){
+            alert(`Saved label for event_uuid=${eventUuid}\nLabel=${labelValue===1?'malicious':'benign'}`);
+          } else {
+            alert('Label failed: ' + (result.error || 'Unknown error'));
+          }
+        }catch(err){
+          console.error('Label request failed:', err);
+          alert('Label request failed: ' + err.message);
+        }
+      }
+
+      document.getElementById('detailLabelBenign').addEventListener('click', async ()=>{
+        await labelCurrentDetail(0);
+      });
+      document.getElementById('detailLabelMalicious').addEventListener('click', async ()=>{
+        await labelCurrentDetail(1);
+      });
+
+      // Manual promotion to Stage 4
+      document.getElementById('detailPromoteStage4').addEventListener('click', async ()=>{
+        if(!currentDetailData) return alert('No event data available');
+        const force = confirm('Force promotion (bypass Stage 3)?\n\nClick OK to force, Cancel to run through Stage 3 first.');
+        const btn = document.getElementById('detailPromoteStage4');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+        
+        try {
+          const response = await fetch('/api/promote/stage4', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({event: currentDetailData, force: force})
+          });
+          
+          const result = await response.json();
+          
+          if(result.success) {
+            btn.innerHTML = '<i class="fa fa-check"></i> Promoted!';
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-success');
+            alert(`Event promoted to Stage 4!\nVerdict: ${result.result.verdict}\nScore: ${result.result.score.toFixed(2)}\nConfidence: ${result.result.confidence.toFixed(2)}\nPID: ${result.pid}\n\nThe event will appear in the Active Threats filter and tab.`);
+            // Close modal but stay on current tab (user can navigate manually if they want)
+            document.getElementById('detailModal').style.display='none';
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.classList.remove('btn-success');
+              btn.classList.add('btn-danger');
+              btn.disabled = false;
+            }, 2000);
+          } else {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            alert('Promotion failed: ' + (result.error || 'Unknown error'));
+          }
+        } catch(err) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          console.error('Promote to Stage 4 failed:', err);
+          alert('Promotion request failed: ' + err.message);
+        }
+      });
+
+      // Live filter buttons
+      document.querySelectorAll('#live [data-filter]').forEach(btn=>btn.addEventListener('click', ()=>{
+        const f = btn.dataset.filter;
+        Array.from(liveList.children).forEach(ch=>{ch.style.display=''; if(f==='stage1' && ch.dataset.stage!=='stage1') ch.style.display='none'; if(f==='stage3' && ch.dataset.stage!=='stage3') ch.style.display='none'; if(f==='stage4' && ch.dataset.stage!=='stage4') ch.style.display='none'; if(f==='all') ch.style.display='';});
+      }));
+
+      // simple heuristic to determine stage
+      // Stage 2 is under the hood - dashboard only shows stage1, stage3 (Threat Analysis), stage4 (Active Threat)
+      function guessStage(raw){ try{ if(!raw) return 'stage1'; if(raw.stage) return raw.stage; if(raw.__stage4 || raw.__stage3_score) return 'stage4'; if(raw.__stage3 || raw.__stage3_score !== undefined) return 'stage3'; const s = JSON.stringify(raw).toLowerCase(); if(s.includes('sysmon') || s.includes('microsoft-windows-sysmon') || s.includes('eventid')) return 'stage1'; }catch(e){} return 'stage1'; }
+
+      function prependAndBound(container, node, max=300){ container.prepend(node); while(container.children.length>max) container.removeChild(container.lastChild); }
+
+      // Initial connection
+      connectWebSocket();
+      
+      // Cleanup on page unload
+      window.addEventListener('beforeunload', function() {
+        if (pingInterval) clearInterval(pingInterval);
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        if (ws) ws.close(1000, 'Page unloading');
+      });
+
+      // search box - simple client-side filter on feeds
+      document.getElementById('searchBox').addEventListener('input', function(){
+        const q = this.value.trim().toLowerCase();
+        [alertsList, liveList, alertsOnlyList, promotedList, activeAlertsList].forEach(container=>{ if(container) Array.from(container.children).forEach(ch=>{ const text = ch.textContent.toLowerCase(); ch.style.display = q ? (text.includes(q)?'':'none') : ''; }); });
+      });
+
+      // Admin / Diagnostics actions
+      document.getElementById('btnLoadRecent').addEventListener('click', async ()=>{
+        try{
+          const r = await fetch('/admin/recent'); const j = await r.json();
+          const out = document.getElementById('adminOutput'); out.textContent = JSON.stringify(j.events.slice(0,200), null, 2);
+        }catch(e){ alert('Failed to load recent events: '+e.message) }
+      });
+      document.getElementById('btnLoadJumps').addEventListener('click', async ()=>{
+        try{
+          const r = await fetch('/admin/jumps'); const j = await r.json();
+          const out = document.getElementById('adminOutput'); out.textContent = JSON.stringify(j.jumps.slice(0,200), null, 2);
+        }catch(e){ alert('Failed to load jumps: '+e.message) }
+      });
+
+      // killswitch button (UI only)
+      document.getElementById('killswitchBtn').addEventListener('click', ()=>{
+        if(!confirm('Are you sure you want to trigger the killswitch?')) return;
+        const el = document.getElementById('killswitchBtn'); el.textContent='TERMINATING...'; el.disabled=true; setTimeout(()=>{el.textContent='TERMINATE ALL THREATS'; el.disabled=false},3000);
+      });
+
+    </script>
+  </body>
+</html>

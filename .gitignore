@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# ML models
+models/
+*.pkl
+*.h5
+*.pt
+*.bin
+
+# datasets
+data/
+
+# misc
+*.log

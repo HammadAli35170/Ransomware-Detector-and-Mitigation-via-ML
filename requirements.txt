@@ -1,0 +1,37 @@
+# Windows-only dependencies
+pywin32>=306
+#pywintrace>1.0.0
+
+# Dashboard / Web UI
+fastapi>=0.95.0
+uvicorn[standard]>=0.22.0
+aiofiles>=23.1.0
+websockets>=11.0.0
+pyarrow>=14.0.0
+
+# Stage 3: Feature Extraction + ML
+lightgbm>=4.0.0
+numpy>=1.24.0
+
+# ML Training (Optuna hyperparameter tuning)
+optuna>=3.0.0
+matplotlib>=3.5.0
+seaborn>=0.12.0
+#pip install optuna-integration[lightgbm]
+
+# Stage 4: Full Scorer
+networkx>=3.0.0
+pytorch-tabnet>=4.0.0  # Optional: for TabNet classifier
+xgboost>=2.0.0  # Optional: for ensemble models
+yara-python>=4.3.0  # Optional: for YARA rule scanning
+
+# Additional dependencies (used in codebase)
+scipy>=1.8.0  # Required by some ML libraries
+scikit-learn>=1.0.0  # Required by some ML libraries
+tqdm>=4.65.0  # Progress bars for long-running operations
+# Optional deep learning (only needed for advanced GNN features in train_ml_model_v12_advanced.py)
+# pip install torch torchvision torchaudio
+# pip install torch_geometric
+# pip install shap  # For SHAP explainability
+
+

@@ -1,0 +1,17 @@
+{
+  "current_mode": "dataset_collection",
+  "timestamp": "2026-04-15T16:15:10.215430",
+  "dataset_config": {
+    "enabled": true,
+    "session_name": "stage4_gen_001",
+    "session_id": "e6dfadc6-35c4-4743-8fd4-192dff44f32e",
+    "capture_raw_logs": true,
+    "auto_feature_extract": true,
+    "store_features": true,
+    "output_dir": "data/dataset_sessions",
+    "archive_sysmon": true,
+    "include_metadata": true,
+    "created_at": "2026-04-15T16:15:10.214431"
+  },
+  "production_config": null
+}
